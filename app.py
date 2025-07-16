@@ -6,7 +6,7 @@ import warnings
 import os
 import tempfile
 import threading
-from google import genai
+import google.generativeai as genai
 import time
 
 # Silence warnings
@@ -464,11 +464,9 @@ def test_api():
         data = request.json
         api_key = data.get('api_key')
         
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents="Hello, this is a test. Please respond with 'API key works!'"
-        )
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content("Hello, this is a test. Please respond with 'API key works!'")
         
         return jsonify({"success": True, "response": response.text})
     except Exception as e:
@@ -517,7 +515,8 @@ def regenerate_summary():
         if not api_key or not transcript:
             return jsonify({"success": False, "error": "Missing API key or transcript"})
         
-        client = genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         prompt = f"""I need to make you the summary of the meeting. It should look like the example. When it concerns what each team member did (if it is mentioned in the meeting), you should write each point for each team member on a new line (only one line per team member). Also use character • for bullet points instead of *. Do not use double asterisks (**) for formatting. 
 
@@ -549,10 +548,7 @@ Talking points:
 Here is the transcript to summarize:
 {transcript}"""
         
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
-        )
+        response = model.generate_content(prompt)
         
         return jsonify({"success": True, "summary": response.text})
         
@@ -589,7 +585,8 @@ def process_video_thread(video_path, api_key, summary_length):
         # Step 3: Summarize
         processing_status = {"status": "processing", "progress": 80, "message": "Generating summary..."}
         
-        client = genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         prompt = f"""I need to make you the summary of the meeting. It should look like the example. When it concerns what each team member did (if it is mentioned in the meeting), you should write each point for each team member on a new line (only one line per team member). Also use character • for bullet points instead of *. Do not use double asterisks (**) for formatting. 
 
@@ -621,10 +618,7 @@ Talking points:
 Here is the transcript to summarize:
 {current_transcript}"""
         
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
-        )
+        response = model.generate_content(prompt)
         
         current_summary = response.text
         
