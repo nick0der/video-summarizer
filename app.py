@@ -3,7 +3,6 @@ from flask import Flask, request, render_template_string, jsonify, send_from_dir
 import subprocess
 import whisper
 import warnings
-from urllib3.exceptions import NotOpenSSLWarning
 import os
 import tempfile
 import threading
@@ -11,7 +10,7 @@ from google import genai
 import time
 
 # Silence warnings
-warnings.filterwarnings("ignore", category=NotOpenSSLWarning)
+warnings.filterwarnings("ignore")
 
 app = Flask(__name__)
 
