@@ -6,7 +6,7 @@ import warnings
 import os
 import tempfile
 import threading
-import google.generativeai as genai
+from google import genai
 import time
 
 # Silence warnings
@@ -30,35 +30,37 @@ HTML_TEMPLATE = """
             font-family: Arial, sans-serif; 
             max-width: 800px; 
             margin: 0 auto; 
-            padding: 20px; 
+            padding: 15px; 
             background-color: #f5f5f5;
         }
         .container { 
             background: white; 
-            padding: 30px; 
+            padding: 20px; 
             border-radius: 10px; 
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         h1 { 
             color: #333; 
             text-align: center; 
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+            margin-top: 0;
         }
         .section { 
-            margin-bottom: 25px; 
-            padding: 20px; 
+            margin-bottom: 18px; 
+            padding: 15px; 
             border: 1px solid #ddd; 
             border-radius: 8px; 
             background-color: #fafafa;
         }
         .section h3 { 
             margin-top: 0; 
+            margin-bottom: 12px;
             color: #555;
         }
         input[type="file"], input[type="password"] { 
             width: 100%; 
-            padding: 10px; 
-            margin: 10px 0; 
+            padding: 8px; 
+            margin: 8px 0; 
             border: 1px solid #ddd; 
             border-radius: 5px; 
             font-size: 14px;
@@ -66,12 +68,12 @@ HTML_TEMPLATE = """
         button { 
             background-color: #4CAF50; 
             color: white; 
-            padding: 12px 24px; 
+            padding: 10px 20px; 
             border: none; 
             border-radius: 5px; 
             cursor: pointer; 
             font-size: 16px; 
-            margin: 10px 5px;
+            margin: 8px 4px;
         }
         button:hover { 
             background-color: #45a049; 
@@ -86,7 +88,7 @@ HTML_TEMPLATE = """
             background-color: #f0f0f0; 
             border-radius: 10px; 
             overflow: hidden; 
-            margin: 10px 0;
+            margin: 8px 0;
         }
         .progress-fill { 
             height: 100%; 
@@ -94,8 +96,8 @@ HTML_TEMPLATE = """
             transition: width 0.3s ease;
         }
         .status { 
-            padding: 10px; 
-            margin: 10px 0; 
+            padding: 8px; 
+            margin: 8px 0; 
             border-radius: 5px; 
             font-weight: bold;
         }
@@ -105,19 +107,23 @@ HTML_TEMPLATE = """
         .status.error { background-color: #f8d7da; color: #721c24; }
         textarea { 
             width: 100%; 
-            height: 200px; 
-            padding: 10px; 
+            height: 180px; 
+            padding: 8px; 
             border: 1px solid #ddd; 
             border-radius: 5px; 
             font-family: monospace; 
             font-size: 12px;
             resize: vertical;
+            margin-bottom: 8px;
         }
         .hidden { display: none; }
         .save-btn { 
             background-color: #007bff; 
             font-size: 14px; 
             padding: 8px 16px;
+        }
+        .save-btn:hover { 
+            background-color: #0056b3; 
         }
         label input[type="radio"] {
             margin-right: 5px;
@@ -179,6 +185,42 @@ HTML_TEMPLATE = """
                 </label>
                 <label>
                     <input type="radio" name="summaryLength" value="long"> Long
+                </label>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📋 Summary Format</h3>
+            <div style="margin: 10px 0;">
+                <label style="display: block; margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9;">
+                    <input type="radio" name="summaryFormat" value="format 1" checked style="margin-right: 10px;"> 
+                    <strong>Format 1 (Executive Summary):</strong><br>
+                    <span style="font-family: monospace; font-size: 12px; color: #666; margin-left: 25px; display: block; margin-top: 5px;">
+                        Talking points:<br>
+                        • Discovery experiments are progressing on two fronts...<br>
+                        • The DX experiment uses a new SQL-backed dashboard...<br>
+                        • The engineering leadership experiment aims to empower engineers...
+                    </span>
+                </label>
+                <label style="display: block; margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9;">
+                    <input type="radio" name="summaryFormat" value="format 2" style="margin-right: 10px;"> 
+                    <strong>Format 2 (Structured Meeting Notes):</strong><br>
+                    <span style="font-family: monospace; font-size: 12px; color: #666; margin-left: 25px; display: block; margin-top: 5px;">
+                        Talking points:<br>
+                        • Meal scan OpenAI integration ready for 10% rollout starting January 10-11:<br>
+                        &nbsp;&nbsp;• Results show dramatic quality improvement over current system<br>
+                        &nbsp;&nbsp;• Production environment has critical infinite loop issue<br>
+                        • Up Next card development for dashboard validation:<br>
+                        &nbsp;&nbsp;• Purpose is to test assumptions before major Manage My Day summer release
+                    </span>
+                </label>
+                <label style="display: block; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9;">
+                    <input type="radio" name="summaryFormat" value="format 3" style="margin-right: 10px;"> 
+                    <strong>Format 3 (Executive Summary - Narrative):</strong><br>
+                    <span style="font-family: monospace; font-size: 12px; color: #666; margin-left: 25px; display: block; margin-top: 5px;">
+                        The meeting focused on MyFitnessPal's financial situation and resulting organizational changes. The company is facing a $5 million EBITDA shortfall...<br><br>
+                        Despite company-wide budget constraints, the team's contractors will remain. Service ownership changes were discussed...
+                    </span>
                 </label>
             </div>
         </div>
@@ -280,6 +322,7 @@ HTML_TEMPLATE = """
             const fileInput = document.getElementById('videoFile');
             const apiKey = document.getElementById('apiKey').value;
             const summaryLength = document.querySelector('input[name="summaryLength"]:checked').value;
+            const summaryFormat = document.querySelector('input[name="summaryFormat"]:checked').value;
             
             if (!fileInput.files[0]) {
                 alert('Please select a video file');
@@ -295,6 +338,7 @@ HTML_TEMPLATE = """
             formData.append('video', fileInput.files[0]);
             formData.append('api_key', apiKey);
             formData.append('summary_length', summaryLength);
+            formData.append('summary_format', summaryFormat);
             
             document.getElementById('processBtn').disabled = true;
             document.getElementById('transcript').value = '';
@@ -353,6 +397,7 @@ HTML_TEMPLATE = """
         function regenerateSummary() {
             const apiKey = document.getElementById('apiKey').value;
             const summaryLength = document.querySelector('input[name="summaryLength"]:checked').value;
+            const summaryFormat = document.querySelector('input[name="summaryFormat"]:checked').value;
             const transcript = document.getElementById('transcript').value;
             
             if (!apiKey) {
@@ -377,6 +422,7 @@ HTML_TEMPLATE = """
                 body: JSON.stringify({
                     api_key: apiKey,
                     summary_length: summaryLength,
+                    summary_format: summaryFormat,
                     transcript: transcript
                 })
             })
@@ -464,9 +510,11 @@ def test_api():
         data = request.json
         api_key = data.get('api_key')
         
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content("Hello, this is a test. Please respond with 'API key works!'")
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents="Hello, this is a test. Please respond with 'API key works!'"
+        )
         
         return jsonify({"success": True, "response": response.text})
     except Exception as e:
@@ -480,6 +528,7 @@ def process():
         video_file = request.files['video']
         api_key = request.form['api_key']
         summary_length = request.form['summary_length']
+        summary_format = request.form['summary_format']
         
         # Reset status
         processing_status = {"status": "processing", "progress": 20, "message": "Processing started..."}
@@ -492,7 +541,7 @@ def process():
         video_file.save(video_path)
         
         # Start processing in background thread
-        thread = threading.Thread(target=process_video_thread, args=(video_path, api_key, summary_length))
+        thread = threading.Thread(target=process_video_thread, args=(video_path, api_key, summary_length, summary_format))
         thread.daemon = True
         thread.start()
         
@@ -510,18 +559,23 @@ def regenerate_summary():
         data = request.json
         api_key = data.get('api_key')
         summary_length = data.get('summary_length')
+        summary_format = data.get('summary_format')
         transcript = data.get('transcript')
         
         if not api_key or not transcript:
             return jsonify({"success": False, "error": "Missing API key or transcript"})
         
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        client = genai.Client(api_key=api_key)
         
-        prompt = f"""I need to make you the summary of the meeting. It should look like the example. When it concerns what each team member did (if it is mentioned in the meeting), you should write each point for each team member on a new line (only one line per team member). Also use character • for bullet points instead of *. Do not use double asterisks (**) for formatting. 
+        prompt = f"""I need to make you the summary of the meeting. It should look like the example.
 
+Format (format 1 or format 2 or format 3): {summary_format}
 Length of the summary (very short, short, medium, long): {summary_length}
 
+Format guidelines:
+- Format 1 (Executive Summary): Organized with bullet points. All bullet points at the equal level. Always starts with 'Talking points:'. Each bullet points starts with character •
+- Format 2 (Structured Meeting Notes): Organized with bullet points. one bullet point can have one or few subbullet points. Always starts with 'Talking points:'. Each bullet points starts with character •
+- Format 3 (Executive Summary): A concise narrative format, divided by paragraphs. Do NOT use any bullet points or asterisk (*)!
 Length guidelines:
 - Very short: Maximum 3-5 main talking points, each with only 1-2 bullet points. Focus on the most critical decisions and next steps only.
 - Short: 5-8 main talking points with 2-3 bullet points each. Include key decisions, main discussions, and important next steps.
@@ -530,25 +584,48 @@ Length guidelines:
 
 Please format it as an example and in your answer and just write summary, nothing like 'here you go:
 
-EXAMPLE:
+EXAMPLE Format 1:
 Talking points:
-1. The second week of the Braze experiments ran 07.14 at 12 a.m. Next steps are unclear; follow-up with Courtney is planned to decide if more data is needed or to choose the next experiment.
-2. Progress Insights Streamlit demo was shared:
-   • Post-MVP prototype for AI-generated insights using summary data (protein, fiber, steps averages).
-   • Goal is to test if fully AI-generated insights become repetitive or provide unique value compared to templated ones.
-   • Includes user feedback buttons linked to LangSmith for evaluation.
-   • Future improvements may add pattern detection (e.g. day-of-week trends) and richer insights.
-   • Cost considerations were discussed, with options to reduce frequency, use cheaper models, or rely on templates to manage budget.
-3. Backend integration:
-   • Endpoints are feature-complete.
-   • Coordination needed on contract details (enums, date formats).
-   • Mobile tickets exist (e.g. APPS-2461) but need review and splitting by platform.
-   • Frontend is not blocked but will need to plan integration work.
+• Discovery experiments are progressing on two fronts: improving developer experience (DX) and defining engineering leadership roles.
+• The DX experiment uses a new SQL-backed dashboard to track key metrics like QA bounce rates and median sprint cycle times. Initial data shows a positive trend with reduced cycle times.
+• The engineering leadership experiment aims to empower engineers to take project ownership beyond just ticket implementation. The pilot project is the Android Shinobi Chart deprecation, led by Jorge.
+• The iOS team is discussing whether to replace Shinobi Charts immediately or postpone it until a larger redesign is feasible, balancing effort and impact.
+• The Braze Content Card experiment has completed two rounds. Learnings are documented, and the team agreed to sunset the experiment. The backend service will be turned off to release resources.
+
+EXAMPLE Format 2:
+Talking points:
+• Meal scan OpenAI integration ready for 10% rollout starting January 10-11:
+  • Results show dramatic quality improvement over current system
+  • Production environment has critical infinite loop issue requiring immediate attention
+  • Nick will investigate production bug offline with Adriana
+• Up Next card development for dashboard validation:
+  • Purpose is to test assumptions before major Manage My Day summer release
+  • Will be simple container with split-testing capability for different copy variations
+  • Troy will provide specifications after Austin onsite this week
+• Team member updates:
+  • Adriana: Analytics QA complete, working on Android voice logging tickets
+  • Ali: Completing iOS microphone permissions analytics work
+  • Will: Handling iOS release blocker, then returning to card caching work
+  • Diego: Resolving logging service routing issues, meal scan performance bug fix ready for pre-prod
+  • Nathaniel: Building Android Manage My Day scaffolding and UI module setup
+  • Scott: Food details bottom sheet development nearly complete, minor fixes needed
+
+EXAMPLE Format 3:
+The meeting focused on MyFitnessPal's financial situation and resulting organizational changes. The company is facing a $5 million EBITDA shortfall, leading to cost-cutting measures including a 90-day hiring freeze and cancellation of the September on-site meeting.
+
+Despite company-wide budget constraints, the team's contractors will remain. Service ownership changes were discussed, with the team potentially taking on additional responsibilities including Vitamin UI and Identity service.
+
+The Raven and Stride contracts will not be renewed, impacting website support. The team will participate in workshops over the next 3-4 weeks to define the pillar's identity and objectives.
+
+Project prioritization challenges were acknowledged, with current priorities driven by solutions promised to the board to address financial challenges.
 
 Here is the transcript to summarize:
 {transcript}"""
         
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
         
         return jsonify({"success": True, "summary": response.text})
         
@@ -559,39 +636,72 @@ Here is the transcript to summarize:
 def results():
     return jsonify({"transcript": current_transcript, "summary": current_summary})
 
-def process_video_thread(video_path, api_key, summary_length):
+def process_video_thread(video_path, api_key, summary_length, summary_format):
     global processing_status, current_transcript, current_summary, whisper_model
     
     try:
+        print(f"Starting video processing for: {video_path}")
+        
+        # Check if FFmpeg is available
+        try:
+            ffmpeg_check = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=10)
+            if ffmpeg_check.returncode != 0:
+                raise Exception("FFmpeg not found")
+            print("FFmpeg is available")
+        except Exception as e:
+            print(f"FFmpeg check failed: {e}")
+            processing_status = {"status": "error", "progress": 0, "message": f"FFmpeg not available: {str(e)}"}
+            return
+        
         # Step 1: Convert to audio
+        print("Converting video to audio...")
         processing_status = {"status": "processing", "progress": 30, "message": "Converting video to audio..."}
         audio_path = os.path.join(tempfile.gettempdir(), "temp_audio.mp3")
         
-        cmd = ["ffmpeg", "-y", "-i", video_path, "-vn", "-acodec", "mp3", audio_path]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        cmd = ["ffmpeg", "-y", "-i", video_path, "-vn", "-acodec", "mp3", "-ar", "16000", audio_path]
+        print(f"Running FFmpeg command: {' '.join(cmd)}")
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)  # 5 minute timeout
         
         if result.returncode != 0:
+            print(f"FFmpeg stderr: {result.stderr}")
             raise Exception(f"FFmpeg error: {result.stderr}")
         
+        print(f"Audio conversion complete: {audio_path}")
+        
+        # Check if audio file was created
+        if not os.path.exists(audio_path):
+            raise Exception("Audio file was not created")
+        
         # Step 2: Transcribe
+        print("Loading Whisper model...")
         processing_status = {"status": "processing", "progress": 60, "message": "Transcribing audio..."}
         
         if whisper_model is None:
+            print("Loading Whisper base model...")
             whisper_model = whisper.load_model("base")
+            print("Whisper model loaded")
         
+        print("Starting transcription...")
         result = whisper_model.transcribe(audio_path)
         current_transcript = result["text"]
+        print(f"Transcription complete. Length: {len(current_transcript)} characters")
         
         # Step 3: Summarize
+        print("Generating summary...")
         processing_status = {"status": "processing", "progress": 80, "message": "Generating summary..."}
         
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        client = genai.Client(api_key=api_key)
         
-        prompt = f"""I need to make you the summary of the meeting. It should look like the example. When it concerns what each team member did (if it is mentioned in the meeting), you should write each point for each team member on a new line (only one line per team member). Also use character • for bullet points instead of *. Do not use double asterisks (**) for formatting. 
+        prompt = f"""I need to make you the summary of the meeting. It should look like the example.
 
+Format (format 1 or format 2 or format 3): {summary_format}
 Length of the summary (very short, short, medium, long): {summary_length}
 
+Format guidelines:
+- Format 1 (Executive Summary): Organized with bullet points. All bullet points at the equal level. Always starts with 'Talking points:'. Each bullet points starts with character •
+- Format 2 (Structured Meeting Notes): Organized with bullet points. one bullet point can have one or few subbullet points. Always starts with 'Talking points:'. Each bullet points starts with character •
+- Format 3 (Executive Summary): A concise narrative format, divided by paragraphs. Do NOT use any bullet points or asterisk (*)!
 Length guidelines:
 - Very short: Maximum 3-5 main talking points, each with only 1-2 bullet points. Focus on the most critical decisions and next steps only.
 - Short: 5-8 main talking points with 2-3 bullet points each. Include key decisions, main discussions, and important next steps.
@@ -600,48 +710,82 @@ Length guidelines:
 
 Please format it as an example and in your answer and just write summary, nothing like 'here you go:
 
-EXAMPLE:
+EXAMPLE Format 1:
 Talking points:
-1. The second week of the Braze experiments ran 07.14 at 12 a.m. Next steps are unclear; follow-up with Courtney is planned to decide if more data is needed or to choose the next experiment.
-2. Progress Insights Streamlit demo was shared:
-   • Post-MVP prototype for AI-generated insights using summary data (protein, fiber, steps averages).
-   • Goal is to test if fully AI-generated insights become repetitive or provide unique value compared to templated ones.
-   • Includes user feedback buttons linked to LangSmith for evaluation.
-   • Future improvements may add pattern detection (e.g. day-of-week trends) and richer insights.
-   • Cost considerations were discussed, with options to reduce frequency, use cheaper models, or rely on templates to manage budget.
-3. Backend integration:
-   • Endpoints are feature-complete.
-   • Coordination needed on contract details (enums, date formats).
-   • Mobile tickets exist (e.g. APPS-2461) but need review and splitting by platform.
-   • Frontend is not blocked but will need to plan integration work.
+• Discovery experiments are progressing on two fronts: improving developer experience (DX) and defining engineering leadership roles.
+• The DX experiment uses a new SQL-backed dashboard to track key metrics like QA bounce rates and median sprint cycle times. Initial data shows a positive trend with reduced cycle times.
+• The engineering leadership experiment aims to empower engineers to take project ownership beyond just ticket implementation. The pilot project is the Android Shinobi Chart deprecation, led by Jorge.
+• The iOS team is discussing whether to replace Shinobi Charts immediately or postpone it until a larger redesign is feasible, balancing effort and impact.
+• The Braze Content Card experiment has completed two rounds. Learnings are documented, and the team agreed to sunset the experiment. The backend service will be turned off to release resources.
+
+EXAMPLE Format 2:
+Talking points:
+• Meal scan OpenAI integration ready for 10% rollout starting January 10-11:
+  • Results show dramatic quality improvement over current system
+  • Production environment has critical infinite loop issue requiring immediate attention
+  • Nick will investigate production bug offline with Adriana
+• Up Next card development for dashboard validation:
+  • Purpose is to test assumptions before major Manage My Day summer release
+  • Will be simple container with split-testing capability for different copy variations
+  • Troy will provide specifications after Austin onsite this week
+• Team member updates:
+  • Adriana: Analytics QA complete, working on Android voice logging tickets
+  • Ali: Completing iOS microphone permissions analytics work
+  • Will: Handling iOS release blocker, then returning to card caching work
+  • Diego: Resolving logging service routing issues, meal scan performance bug fix ready for pre-prod
+  • Nathaniel: Building Android Manage My Day scaffolding and UI module setup
+  • Scott: Food details bottom sheet development nearly complete, minor fixes needed
+
+EXAMPLE Format 3:
+The meeting focused on MyFitnessPal's financial situation and resulting organizational changes. The company is facing a $5 million EBITDA shortfall, leading to cost-cutting measures including a 90-day hiring freeze and cancellation of the September on-site meeting.
+
+Despite company-wide budget constraints, the team's contractors will remain. Service ownership changes were discussed, with the team potentially taking on additional responsibilities including Vitamin UI and Identity service.
+
+The Raven and Stride contracts will not be renewed, impacting website support. The team will participate in workshops over the next 3-4 weeks to define the pillar's identity and objectives.
+
+Project prioritization challenges were acknowledged, with current priorities driven by solutions promised to the board to address financial challenges.
 
 Here is the transcript to summarize:
 {current_transcript}"""
         
-        response = model.generate_content(prompt)
-        
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
         current_summary = response.text
+        print(f"Summary generated. Length: {len(current_summary)} characters")
         
         # Cleanup
-        if os.path.exists(video_path):
-            os.remove(video_path)
-        if os.path.exists(audio_path):
-            os.remove(audio_path)
+        try:
+            if os.path.exists(video_path):
+                os.remove(video_path)
+                print("Video file cleaned up")
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+                print("Audio file cleaned up")
+        except Exception as cleanup_error:
+            print(f"Cleanup error: {cleanup_error}")
         
         processing_status = {"status": "complete", "progress": 100, "message": "Processing complete!"}
+        print("Processing completed successfully!")
         
     except Exception as e:
+        print(f"Error in process_video_thread: {e}")
         processing_status = {"status": "error", "progress": 0, "message": f"Error: {str(e)}"}
 
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 3000))
+    debug = os.environ.get("FLASK_ENV") == "development"
+    
     print("Starting Video Summarizer Web App...")
-    print("Install required packages: pip install flask openai-whisper google-generativeai")
-    print("Make sure ffmpeg is installed: brew install ffmpeg")
+    print("Install required packages: pip install -r requirements.txt")
+    print("Make sure ffmpeg is installed")
     print("")
+    print(f"Server will start on port {port}")
     print("Once started, try these URLs:")
-    print("- http://localhost:8080")
-    print("- http://127.0.0.1:8080")
-    print("- http://0.0.0.0:8080")
+    print(f"- http://localhost:{port}")
+    print(f"- http://127.0.0.1:{port}")
     print("")
     
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    # Production-ready Flask settings
+    app.run(debug=debug, host='0.0.0.0', port=port, threaded=True)
