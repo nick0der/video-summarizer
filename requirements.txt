@@ -1,0 +1,8 @@
+flask==2.3.3
+openai-whisper>=20231117
+google-generativeai>=0.3.2
+gunicorn==21.2.0
+urllib3==1.26.20
+torch>=2.0.0
+torchaudio>=2.0.0
+numpy>=1.24.0
